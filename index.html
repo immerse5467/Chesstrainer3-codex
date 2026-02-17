@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en" data-darkreader-mode="disabled" data-color-scheme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#0a0806" />
+  <meta name="color-scheme" content="only light" />
+  <meta name="description" content="Master chess openings through interactive practice with Okami-style sumi-e graphics" />
+  <title>Chess Opening Trainer</title>
+  <style>
+    /* === DARK MODE / DARK READER PROTECTION ===
+       This app has its own carefully designed dark theme via WebGL + CSS.
+       Browser dark mode and extensions like Dark Reader must NOT interfere. */
+    :root {
+      color-scheme: only light;
+    }
+    html, body, #root {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #0a0806 !important;
+      color: #ede4d0 !important;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    /* Block Dark Reader from inverting canvas / WebGL */
+    canvas {
+      filter: none !important;
+      mix-blend-mode: normal !important;
+      opacity: 1 !important;
+    }
+    /* Prevent Dark Reader from adding background images or filters to the page */
+    html[data-darkreader-scheme="dark"] canvas,
+    html[data-darkreader-mode] canvas {
+      filter: none !important;
+    }
+    /* Ensure all app elements resist dark mode inversion */
+    img, video, canvas, svg {
+      filter: none !important;
+    }
+    /* Safe area insets for iPhone notch */
+    body {
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    }
+    /* Prevent pull-to-refresh on mobile */
+    body { overscroll-behavior: none; }
+    /* Prevent iOS rubber-band scrolling */
+    html { position: fixed; width: 100%; }
+  </style>
+  <!-- Dark Reader: signal that this site manages its own dark theme -->
+  <meta name="darkreader-lock" />
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+</html>
