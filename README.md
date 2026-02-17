@@ -29,6 +29,24 @@ npm run export
 
 This produces a fresh `chess-trainer.html`.
 
+### Dependency maintenance
+
+Use the following commands to verify and refresh local dependencies:
+
+```bash
+npm install     # install/verify dependencies from package-lock.json
+npm run export  # verify production build + regenerate chess-trainer.html
+```
+
+If dependency update checks fail in your environment, verify npm/network configuration first:
+
+```bash
+npm config list
+env | grep -i proxy
+```
+
+Then retry with your expected registry/proxy settings.
+
 ## Game Modes
 
 - **Learn Mode** — Untimed practice. Take as long as you need. Missed positions are re-queued.
