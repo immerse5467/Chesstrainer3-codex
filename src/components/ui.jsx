@@ -522,7 +522,7 @@ export function Explanation({ text, name, moveNotation, san, visible, onClose, i
 // START SCREEN / MAIN MENU
 // ============================================================================
 
-export function StartScreen({ onStartTimed, onStartUntimed, onStartFSRS, onSelectOpening, highScore, selectedOpening, dueCount, openingsData, onShowProgress }) {
+export function StartScreen({ onStartTimed, onStartUntimed, onStartFSRS, onSelectOpening, highScore, selectedOpening, dueCount, openingsData, onShowProgress, trackOptions, selectedTrackId, onSelectTrack }) {
   const [showOpenings, setShowOpenings] = useState(false);
 
   return (
@@ -588,6 +588,28 @@ export function StartScreen({ onStartTimed, onStartUntimed, onStartFSRS, onSelec
               ))}
             </div>
           )}
+        </div>
+
+        {/* Audio track selector */}
+        <div className="mb-3 sm:mb-4">
+          <label className="block text-[9px] sm:text-[10px] text-[#a08860] font-bold uppercase mb-1" style={{ letterSpacing: '0.08em' }}>
+            Music Track
+          </label>
+          <select
+            value={selectedTrackId}
+            onChange={(e) => onSelectTrack(e.target.value)}
+            className="w-full px-3 py-2 sm:py-2.5 bg-[#0e0c0a]/30 rounded-lg border border-[#3a2e1a] text-[#ede4d0] text-xs sm:text-sm"
+            style={{ fontFamily: FONT }}
+          >
+            {trackOptions?.map(track => (
+              <option key={track.id} value={track.id}>
+                {track.label}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-[#6a5a40] text-[10px] sm:text-xs" style={{ fontFamily: FONT }}>
+            Default: standard-speed Japanese instrumented Bach
+          </p>
         </div>
 
         {highScore > 0 && (

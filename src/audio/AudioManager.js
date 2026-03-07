@@ -1,12 +1,14 @@
 import * as Tone from 'tone';
 
 // ============================================================================
-// AUDIO MANAGER — Serene Japanese ambient + interaction sounds
+// AUDIO MANAGER — Multi-track Japanese-instrument Bach-inspired score + SFX
 // ============================================================================
 class AudioManager {
   constructor() {
     this.ready = false;
     this.musicPlaying = false;
+    this.currentTrackId = 'bach532_jp_standard';
+    this.activeEvents = [];
   }
 
   async init() {
@@ -14,86 +16,36 @@ class AudioManager {
     try {
       await Tone.start();
 
-      // Reverb — spacious but clear
-      this.reverb = new Tone.Reverb({ decay: 3.0, wet: 0.35 }).toDestination();
+      this.musicBus = new Tone.Gain(0.85).toDestination();
+      this.sfxBus = new Tone.Gain(0.95).toDestination();
+      this.reverb = new Tone.Reverb({ decay: 3.2, wet: 0.28 }).connect(this.musicBus);
       await this.reverb.generate();
+      this.musicHP = new Tone.Filter({ frequency: 70, type: 'highpass' }).connect(this.reverb);
+      this.sfxHP = new Tone.Filter({ frequency: 90, type: 'highpass' }).connect(this.sfxBus);
 
-      // High-pass filter to remove sub-bass rumble
-      this.hiPass = new Tone.Filter({ frequency: 80, type: 'highpass' }).connect(this.reverb);
+      // Music instruments (Japanese palette)
+      this.koto = new Tone.PluckSynth({ attackNoise: 0.15, dampening: 4300, resonance: 0.985 }).connect(this.musicHP);
+      this.shamisen = new Tone.PluckSynth({ attackNoise: 0.3, dampening: 3000, resonance: 0.97 }).connect(this.musicHP);
+      this.shakuhachi = new Tone.Synth({ oscillator: { type: 'triangle' }, envelope: { attack: 0.05, decay: 0.25, sustain: 0.35, release: 0.8 } }).connect(this.musicHP);
+      this.rin = new Tone.MetalSynth({ frequency: 410, envelope: { attack: 0.001, decay: 1.0, release: 0.8 }, harmonicity: 4.2, modulationIndex: 11, resonance: 2600, octaves: 0.8 }).connect(this.musicHP);
+      this.taiko = new Tone.MembraneSynth({ pitchDecay: 0.02, octaves: 4, envelope: { attack: 0.001, decay: 0.25, sustain: 0, release: 0.1 } }).connect(this.musicHP);
 
-      // Warm ambient pad — triangle, shorter envelope to avoid droning
-      this.pad = new Tone.PolySynth(Tone.Synth, {
-        oscillator: { type: 'triangle' },
-        envelope: { attack: 1.5, decay: 1.5, sustain: 0.2, release: 2.5 }
-      }).connect(this.hiPass);
-      this.pad.volume.value = -24;
-
-      // Koto-like pluck — clean and resonant
-      this.pluck = new Tone.PluckSynth({
-        attackNoise: 0.12,
-        dampening: 4800,
-        resonance: 0.988
-      }).connect(this.hiPass);
-      this.pluck.volume.value = -14;
-
-      // Temple bell (rin) — warm metallic tone
-      this.bell = new Tone.MetalSynth({
-        frequency: 340,
-        envelope: { attack: 0.001, decay: 1.2, release: 0.8 },
-        harmonicity: 4.1,
-        modulationIndex: 10,
-        resonance: 3000,
-        octaves: 0.8
-      }).connect(this.hiPass);
-      this.bell.volume.value = -26;
-
-      // Wood block for UI clicks
-      this.woodBlock = new Tone.MembraneSynth({
-        pitchDecay: 0.008,
-        octaves: 3.5,
-        envelope: { attack: 0.001, decay: 0.08, sustain: 0, release: 0.08 }
-      }).connect(this.hiPass);
-      this.woodBlock.volume.value = -10;
-
-      // Success chime — bright sine bells
-      this.chime = new Tone.PolySynth(Tone.Synth, {
-        oscillator: { type: 'sine' },
-        envelope: { attack: 0.003, decay: 0.8, sustain: 0.05, release: 1.5 }
-      }).connect(this.hiPass);
-      this.chime.volume.value = -14;
-
-      // Error tone — soft and sympathetic
-      this.errorSynth = new Tone.Synth({
-        oscillator: { type: 'triangle' },
-        envelope: { attack: 0.04, decay: 0.4, sustain: 0, release: 0.3 }
-      }).connect(this.hiPass);
-      this.errorSynth.volume.value = -18;
-
-      // Shamisen-like pluck — brighter attack
-      this.shamisen = new Tone.PluckSynth({
-        attackNoise: 0.25,
-        dampening: 3200,
-        resonance: 0.97
-      }).connect(this.hiPass);
+      this.koto.volume.value = -15;
       this.shamisen.volume.value = -18;
+      this.shakuhachi.volume.value = -22;
+      this.rin.volume.value = -27;
+      this.taiko.volume.value = -18;
 
-      // Japanese in-sen scale (D, Eb, G, A, C) — has a more contemplative, wabi-sabi feel
-      // Extended across octaves for melodic range
-      this.scale = ['D3', 'G3', 'A3', 'C4', 'D4', 'G4', 'A4', 'C5', 'D5'];
-      this.lowScale = ['D3', 'G3', 'A3', 'C4', 'D4'];
-      this.highScale = ['D4', 'G4', 'A4', 'C5', 'D5'];
+      // SFX instruments (Japanese-only character)
+      this.woodBlock = new Tone.MembraneSynth({ pitchDecay: 0.008, octaves: 3.2, envelope: { attack: 0.001, decay: 0.08, sustain: 0, release: 0.08 } }).connect(this.sfxHP);
+      this.kane = new Tone.MetalSynth({ frequency: 620, envelope: { attack: 0.001, decay: 0.5, release: 0.35 }, harmonicity: 5, modulationIndex: 18, resonance: 3000, octaves: 1 }).connect(this.sfxHP);
+      this.shortKoto = new Tone.PluckSynth({ attackNoise: 0.2, dampening: 3500, resonance: 0.98 }).connect(this.sfxHP);
+      this.lowShamisen = new Tone.Synth({ oscillator: { type: 'triangle' }, envelope: { attack: 0.02, decay: 0.2, sustain: 0, release: 0.2 } }).connect(this.sfxHP);
 
-      // Pre-composed melodic phrases — stepwise and pentatonic
-      this.phrases = [
-        ['D4', 'G4', 'A4', 'G4'],
-        ['A4', 'G4', 'D4', 'C4'],
-        ['D4', 'C4', 'A3', 'D4'],
-        ['G4', 'A4', 'C5', 'A4'],
-        ['C5', 'A4', 'G4', 'D4'],
-        ['A3', 'C4', 'D4', 'G4'],
-        ['D5', 'C5', 'A4', 'G4'],
-        ['G4', 'D4', 'C4', 'D4'],
-      ];
+      this.woodBlock.volume.value = -10;
+      this.kane.volume.value = -17;
+      this.shortKoto.volume.value = -12;
+      this.lowShamisen.volume.value = -15;
 
       this.ready = true;
       return true;
@@ -103,71 +55,49 @@ class AudioManager {
     }
   }
 
+  getTrackOptions() {
+    return [
+      { id: 'original_ambient', label: 'Original ambient track', bpm: 48 },
+      { id: 'expressive_lofi_jp', label: 'Expressive Bach-like lo-fi (Japanese instrumentation)', bpm: 82 },
+      { id: 'bach532_jp_standard', label: 'BWV 532 + Dorian preludes/fugues (Japanese) — standard', bpm: 92 },
+      { id: 'bach532_jp_fast', label: 'BWV 532 + Dorian preludes/fugues (Japanese) — fast', bpm: 132 }
+    ];
+  }
+
+  getCurrentTrackId() {
+    return this.currentTrackId;
+  }
+
+  setTrack(trackId) {
+    if (!this.getTrackOptions().some(t => t.id === trackId)) return;
+    this.currentTrackId = trackId;
+    if (this.musicPlaying) this.startMusic();
+  }
+
+  _clearMusicEvents() {
+    this.activeEvents.forEach(e => e.dispose?.());
+    this.activeEvents = [];
+  }
+
   startMusic() {
-    if (!this.ready || this.musicPlaying) return;
+    if (!this.ready) return;
     try {
       Tone.getTransport().stop();
       Tone.getTransport().cancel();
+      this._clearMusicEvents();
 
-      let chordIdx = 0;
-      const chords = [
-        ['D3', 'A3', 'D4'],
-        ['G3', 'D4', 'G4'],
-        ['A3', 'D4', 'A4'],
-        ['C4', 'G4', 'C5'],
-      ];
+      const builders = {
+        original_ambient: () => this._buildOriginalAmbient(),
+        expressive_lofi_jp: () => this._buildExpressiveLofi(),
+        bach532_jp_standard: () => this._buildBachSuite(false),
+        bach532_jp_fast: () => this._buildBachSuite(true)
+      };
 
-      // Gentle pad chords — shorter duration to avoid droning
-      this.padEvent = new Tone.Loop((time) => {
-        this.pad.triggerAttackRelease(chords[chordIdx % chords.length], '2m', time, 0.15);
-        chordIdx++;
-      }, '2m');
+      const { events, bpm } = (builders[this.currentTrackId] || builders.bach532_jp_standard)();
+      this.activeEvents = events;
+      this.activeEvents.forEach(e => e.start(0));
 
-      // Main koto melody — plays phrases rather than random notes
-      let phraseIdx = 0;
-      let noteInPhrase = 0;
-      let currentPhrase = this.phrases[0];
-
-      this.melodyEvent = new Tone.Loop((time) => {
-        // 70% chance to play (breathing space)
-        if (Math.random() > 0.3) {
-          const note = currentPhrase[noteInPhrase];
-          this.pluck.triggerAttackRelease(note, time);
-          noteInPhrase++;
-
-          if (noteInPhrase >= currentPhrase.length) {
-            noteInPhrase = 0;
-            phraseIdx = (phraseIdx + 1) % this.phrases.length;
-            // Occasionally skip to a random phrase for variety
-            if (Math.random() > 0.6) {
-              phraseIdx = Math.floor(Math.random() * this.phrases.length);
-            }
-            currentPhrase = this.phrases[phraseIdx];
-          }
-        }
-      }, '2n');
-
-      // Shamisen — lower register, sparse accents
-      this.shamisenEvent = new Tone.Loop((time) => {
-        if (Math.random() > 0.6) {
-          const note = this.lowScale[Math.floor(Math.random() * this.lowScale.length)];
-          this.shamisen.triggerAttackRelease(note, time);
-        }
-      }, '1n');
-
-      // Temple bell — very sparse, meditative
-      this.bellEvent = new Tone.Loop((time) => {
-        if (Math.random() > 0.7) {
-          this.bell.triggerAttackRelease('C5', '8n', time, 0.15);
-        }
-      }, '4m');
-
-      this.padEvent.start(0);
-      this.melodyEvent.start('2m');
-      this.shamisenEvent.start('4m');
-      this.bellEvent.start('3m');
-
-      Tone.getTransport().bpm.value = 48;
+      Tone.getTransport().bpm.value = bpm;
       Tone.getTransport().start();
       this.musicPlaying = true;
     } catch (e) {
@@ -175,47 +105,125 @@ class AudioManager {
     }
   }
 
+  _buildOriginalAmbient() {
+    let chordIdx = 0;
+    const chords = [['D3', 'A3', 'D4'], ['G3', 'D4', 'G4'], ['A3', 'D4', 'A4'], ['C4', 'G4', 'C5']];
+    const scale = ['D3', 'G3', 'A3', 'C4', 'D4', 'G4', 'A4', 'C5'];
+
+    const pad = new Tone.Loop((time) => {
+      this.shakuhachi.triggerAttackRelease(chords[chordIdx % chords.length][2], '1m', time, 0.18);
+      chordIdx++;
+    }, '1m');
+
+    const koto = new Tone.Loop((time) => {
+      const note = scale[Math.floor(Math.random() * scale.length)];
+      this.koto.triggerAttackRelease(note, time);
+    }, '2n');
+
+    const bell = new Tone.Loop((time) => {
+      if (Math.random() > 0.65) this.rin.triggerAttackRelease('C5', '8n', time, 0.14);
+    }, '4m');
+
+    return { events: [pad, koto, bell], bpm: 48 };
+  }
+
+  _buildExpressiveLofi() {
+    const bassLine = ['D2', 'A2', 'G2', 'A2', 'F2', 'G2', 'A2', 'D2'];
+    const lead = ['D4', 'F4', 'A4', 'C5', 'A4', 'G4', 'F4', 'E4', 'D4', 'F4', 'G4', 'A4'];
+    let b = 0;
+    let m = 0;
+
+    const bass = new Tone.Loop((time) => {
+      this.shamisen.triggerAttackRelease(bassLine[b % bassLine.length], time, 0.85);
+      b++;
+    }, '2n');
+
+    const melody = new Tone.Loop((time) => {
+      this.koto.triggerAttackRelease(lead[m % lead.length], time, 0.72);
+      m++;
+    }, '4n');
+
+    const percussion = new Tone.Loop((time) => {
+      this.taiko.triggerAttackRelease('C2', '16n', time, 0.5);
+      this.taiko.triggerAttackRelease('G1', '32n', time + Tone.Time('8n').toSeconds(), 0.3);
+    }, '2n');
+
+    const ornament = new Tone.Loop((time) => {
+      if (Math.random() > 0.5) this.shakuhachi.triggerAttackRelease('D5', '8n', time, 0.12);
+    }, '1m');
+
+    return { events: [bass, melody, percussion, ornament], bpm: 82 };
+  }
+
+  _buildBachSuite(fast = false) {
+    // Condensed motifs inspired by BWV 532 and Dorian textures, revoiced for Japanese instruments.
+    const motif532 = ['D4', 'F4', 'A4', 'D5', 'C5', 'A4', 'F4', 'E4', 'D4', 'A3', 'D4', 'F4', 'A4', 'C5', 'D5', 'A4'];
+    const dorianMotif = ['D4', 'E4', 'F4', 'G4', 'A4', 'G4', 'F4', 'E4', 'D4', 'C4', 'D4', 'F4', 'G4', 'A4', 'C5', 'A4'];
+    const basso = ['D2', 'A2', 'D3', 'F3', 'G2', 'D3', 'A2', 'E3', 'F2', 'C3', 'G2', 'D3', 'A2', 'D3', 'C3', 'A2'];
+
+    let i = 0;
+    let j = 0;
+    let k = 0;
+
+    const semiquaver = new Tone.Loop((time) => {
+      const src = (Math.floor(i / 16) % 2 === 0) ? motif532 : dorianMotif;
+      this.koto.triggerAttackRelease(src[i % src.length], time, 0.6);
+      i++;
+    }, '16n');
+
+    const counter = new Tone.Loop((time) => {
+      const src = (Math.floor(j / 16) % 2 === 0) ? dorianMotif : motif532;
+      this.shamisen.triggerAttackRelease(src[j % src.length], time, 0.5);
+      j++;
+    }, '8n');
+
+    const pedal = new Tone.Loop((time) => {
+      this.shakuhachi.triggerAttackRelease(basso[k % basso.length], '4n', time, 0.24);
+      if (k % 4 === 0) this.rin.triggerAttackRelease('D5', '16n', time + Tone.Time('8n').toSeconds(), 0.08);
+      k++;
+    }, '4n');
+
+    return { events: [semiquaver, counter, pedal], bpm: fast ? 132 : 92 };
+  }
+
   stopMusic() {
     if (!this.musicPlaying) return;
     try {
       Tone.getTransport().stop();
       Tone.getTransport().cancel();
-      this.padEvent?.dispose();
-      this.melodyEvent?.dispose();
-      this.shamisenEvent?.dispose();
-      this.bellEvent?.dispose();
+      this._clearMusicEvents();
       this.musicPlaying = false;
     } catch (e) {}
   }
 
   click() { if (this.ready) try { this.woodBlock.triggerAttackRelease('G4', '64n'); } catch(e) {} }
-  pickup() { if (this.ready) try { this.woodBlock.triggerAttackRelease('C5', '32n'); } catch(e) {} }
-  place() { if (this.ready) try { this.woodBlock.triggerAttackRelease('E4', '16n'); } catch(e) {} }
+  pickup() { if (this.ready) try { this.shortKoto.triggerAttackRelease('C5', '32n'); } catch(e) {} }
+  place() { if (this.ready) try { this.shortKoto.triggerAttackRelease('E4', '16n'); } catch(e) {} }
 
   correct() {
     if (this.ready) try {
       const now = Tone.now();
-      this.chime.triggerAttackRelease('D4', '8n', now, 0.5);
-      this.chime.triggerAttackRelease('A4', '8n', now + 0.15, 0.5);
-      this.chime.triggerAttackRelease('D5', '4n', now + 0.30, 0.5);
+      this.kane.triggerAttackRelease('D5', '16n', now, 0.4);
+      this.kane.triggerAttackRelease('A5', '16n', now + 0.12, 0.35);
+      this.shortKoto.triggerAttackRelease('D6', now + 0.24, 0.5);
     } catch(e) {}
   }
 
-  wrong() { if (this.ready) try { this.errorSynth.triggerAttackRelease('Eb3', '8n'); } catch(e) {} }
-  hint() { if (this.ready) try { this.bell.triggerAttackRelease('D5', '16n', Tone.now(), 0.3); } catch(e) {} }
+  wrong() { if (this.ready) try { this.lowShamisen.triggerAttackRelease('D3', '8n'); } catch(e) {} }
+  hint() { if (this.ready) try { this.rin.triggerAttackRelease('D5', '16n', Tone.now(), 0.22); } catch(e) {} }
 
   streak() {
     if (this.ready) try {
       const now = Tone.now();
-      ['D4', 'G4', 'A4', 'C5', 'D5'].forEach((note, i) => {
-        this.chime.triggerAttackRelease(note, '16n', now + i * 0.07, 0.4);
+      ['D4', 'F4', 'A4', 'C5', 'D5'].forEach((note, idx) => {
+        this.shortKoto.triggerAttackRelease(note, now + idx * 0.06, 0.35);
       });
     } catch(e) {}
   }
 
   inkSplash() {
     if (this.ready) try {
-      this.bell.triggerAttackRelease('G5', '32n', Tone.now(), 0.18);
+      this.kane.triggerAttackRelease('G5', '32n', Tone.now(), 0.2);
     } catch(e) {}
   }
 }

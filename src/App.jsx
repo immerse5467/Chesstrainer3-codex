@@ -30,6 +30,7 @@ export default function App() {
   const [selectedOpening, setSelectedOpening] = useState('all');
   const [dbReady, setDbReady] = useState(false);
   const [dueCount, setDueCount] = useState(0);
+  const [selectedTrackId, setSelectedTrackId] = useState(audio.getCurrentTrackId());
 
   const [position, setPosition] = useState(null);
   const [pieces, setPieces] = useState([]);
@@ -107,6 +108,7 @@ export default function App() {
 
   const startGame = useCallback(async (timed, fsrsMode = false) => {
     await audio.init();
+    audio.setTrack(selectedTrackId);
     audio.startMusic();
     setIsTimed(timed);
     setIsFSRS(fsrsMode);
@@ -141,7 +143,14 @@ export default function App() {
       }
     }
     setScreen('playing');
-  }, [nextPosition, loadPosition, currentPositions, dbReady]);
+  }, [nextPosition, loadPosition, currentPositions, dbReady, selectedTrackId]);
+
+
+  const handleSelectTrack = useCallback(async (trackId) => {
+    setSelectedTrackId(trackId);
+    await audio.init();
+    audio.setTrack(trackId);
+  }, []);
 
   const endGame = useCallback(async () => {
     audio.stopMusic();
@@ -472,6 +481,9 @@ export default function App() {
           dueCount={dueCount}
           openingsData={OPENINGS}
           onShowProgress={() => setScreen('progress')}
+          trackOptions={audio.getTrackOptions()}
+          selectedTrackId={selectedTrackId}
+          onSelectTrack={handleSelectTrack}
         />
       )}
 
